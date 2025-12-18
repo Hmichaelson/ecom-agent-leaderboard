@@ -4,7 +4,7 @@
 [green_agent]
 # Docker image for the green agent (evaluator)
 # Replace with your actual published image
-image = "ghcr.io/Hmichaelson/ecom-green-agent:latest"
+image = "ghcr.io/luposun/cs194_ecom_greenagent/ecom-green-agent:agent-beats-competition-integration"
 
 # Environment variables for the green agent
 # OPENAI_API_KEY is injected by GitHub Actions if configured as a secret
