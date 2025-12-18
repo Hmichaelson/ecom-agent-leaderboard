@@ -18,7 +18,7 @@ env = {
 agentbeats_id = "019b32ef-3fb6-7d93-bb1d-df8f0ce148ac"  # Fill this in after registering your purple agent
 
 # Docker image for the purple agent
-image = "ghcr.io/YOUR_USERNAME/ecom-white-agent:latest"
+image = "ghcr.io/luposun/cs194_ecom_greenagent/ecom-white-agent:agent-beats-competition-integration"
 
 # Name identifier for this participant
 name = "agent"
