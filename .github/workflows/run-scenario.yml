@@ -54,8 +54,16 @@ jobs:
       - name: Check for results
         id: check_results
         run: |
-          if [ -f output/results.json ]; then
-            echo "Results found"
+          echo "Checking for results files..."
+          ls -la output/
+          
+          # Prefer green_results.json (written directly by green agent)
+          if [ -f output/green_results.json ]; then
+            echo "Found green_results.json - using green agent's direct output"
+            cp output/green_results.json output/results.json
+            echo "has_results=true" >> $GITHUB_OUTPUT
+          elif [ -f output/results.json ]; then
+            echo "Using agentbeats-client results.json"
             echo "has_results=true" >> $GITHUB_OUTPUT
           else
             echo "No results found"
@@ -66,11 +74,11 @@ jobs:
       - name: Debug - Print results.json contents
         if: steps.check_results.outputs.has_results == 'true'
         run: |
+          echo "==================== ALL OUTPUT FILES ===================="
+          ls -la output/
+          echo ""
           echo "==================== RESULTS.JSON CONTENTS ===================="
           cat output/results.json
-          echo ""
-          echo "==================== FILE SIZE ===================="
-          ls -lh output/results.json
           echo ""
           echo "==================== PRETTY PRINT ===================="
           python3 -m json.tool output/results.json || echo "Failed to parse JSON"

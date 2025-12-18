@@ -38,6 +38,8 @@ services:
       - HOST=0.0.0.0
       - AGENT_PORT={green_port}
       - AGENT_URL=http://green-agent:{green_port}{green_env}
+    volumes:
+      - ./output:/app/output
     depends_on:{green_depends}
     networks:
       - agent-network
