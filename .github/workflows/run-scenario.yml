@@ -86,19 +86,18 @@ jobs:
       
       - name: Create Pull Request
         if: steps.check_results.outputs.has_results == 'true'
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: Add assessment results
-          branch: ${{ env.BRANCH_NAME }}
-          title: 'Assessment Results - ${{ github.sha }}'
-          body: |
-            ## Assessment Results
-            
-            This PR contains assessment results from running scenario.toml.
-            
-            **Commit**: ${{ github.sha }}
-            **Triggered by**: ${{ github.actor }}
-            
-            Please review the results and merge if they look correct.
-          labels: assessment-results
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base main \
+            --head "${{ env.BRANCH_NAME }}" \
+            --title "Assessment Results - $(date +%Y-%m-%d)" \
+            --body "## Assessment Results
+
+          This PR contains assessment results from running scenario.toml.
+
+          **Triggered by**: ${{ github.actor }}
+          **Workflow run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Please review the results and merge to update the leaderboard."
