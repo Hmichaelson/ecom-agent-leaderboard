@@ -38,12 +38,6 @@ services:
       - HOST=0.0.0.0
       - AGENT_PORT={green_port}
       - AGENT_URL=http://green-agent:{green_port}{green_env}
-    healthcheck:
-      test: ["CMD-SHELL", "sleep 5"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 60s
     depends_on:{green_depends}
     networks:
       - agent-network
@@ -74,12 +68,6 @@ PARTICIPANT_TEMPLATE = """  {name}:
       - HOST=0.0.0.0
       - AGENT_PORT={port}
       - AGENT_URL=http://{name}:{port}{env}
-    healthcheck:
-      test: ["CMD-SHELL", "sleep 5"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 60s
     networks:
       - agent-network
 """
@@ -119,7 +107,7 @@ def format_depends_on(services: list) -> str:
     lines = []
     for service in services:
         lines.append(f"      {service}:")
-        lines.append(f"        condition: service_healthy")
+        lines.append(f"        condition: service_started")
     return "\n" + "\n".join(lines)
 
 
