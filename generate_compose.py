@@ -34,8 +34,10 @@ services:
     image: {green_image}
     platform: linux/amd64
     container_name: green-agent
-    command: ["--host", "0.0.0.0", "--port", "{green_port}", "--card-url", "http://green-agent:{green_port}"]
-    environment:{green_env}
+    environment:
+      - HOST=0.0.0.0
+      - AGENT_PORT={green_port}
+      - AGENT_URL=http://green-agent:{green_port}{green_env}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:{green_port}/.well-known/agent-card.json"]
       interval: 5s
@@ -68,8 +70,10 @@ PARTICIPANT_TEMPLATE = """  {name}:
     image: {image}
     platform: linux/amd64
     container_name: {name}
-    command: ["--host", "0.0.0.0", "--port", "{port}", "--card-url", "http://{name}:{port}"]
-    environment:{env}
+    environment:
+      - HOST=0.0.0.0
+      - AGENT_PORT={port}
+      - AGENT_URL=http://{name}:{port}{env}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:{port}/.well-known/agent-card.json"]
       interval: 5s
@@ -102,7 +106,7 @@ def parse_scenario(scenario_path: Path) -> dict[str, Any]:
 
 def format_env_vars(env_dict: dict) -> str:
     if not env_dict:
-        return " []"
+        return ""
 
     lines = []
     for key, value in env_dict.items():
