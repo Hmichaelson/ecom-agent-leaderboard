@@ -28,7 +28,7 @@ env = { OPENAI_API_KEY = "${OPENAI_API_KEY}" }
 mode = "benchmark"
 
 # Number of users to test (for benchmark mode)
-num_users = 3
+num_users = 50
 
 # Minimum order size (items) to include a user
 min_order_size = 10
