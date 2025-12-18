@@ -39,11 +39,11 @@ services:
       - AGENT_PORT={green_port}
       - AGENT_URL=http://green-agent:{green_port}{green_env}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:{green_port}/.well-known/agent-card.json"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 30s
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:{green_port}/.well-known/agent-card.json')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
     depends_on:{green_depends}
     networks:
       - agent-network
@@ -75,11 +75,11 @@ PARTICIPANT_TEMPLATE = """  {name}:
       - AGENT_PORT={port}
       - AGENT_URL=http://{name}:{port}{env}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:{port}/.well-known/agent-card.json"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 30s
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:{port}/.well-known/agent-card.json')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
     networks:
       - agent-network
 """
