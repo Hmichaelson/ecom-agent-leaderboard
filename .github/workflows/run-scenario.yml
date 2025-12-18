@@ -24,7 +24,7 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install toml pyyaml
+          pip install toml pyyaml tomli-w
       
       - name: Generate Docker Compose configuration
         run: |
