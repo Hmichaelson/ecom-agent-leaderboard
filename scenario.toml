@@ -15,7 +15,7 @@ env = {
 # Purple agent (the agent being evaluated)
 [[participants]]
 # AgentBeats agent ID (obtained from agent registration page)
-agentbeats_id = ""  # Fill this in after registering your purple agent
+agentbeats_id = "019b32ef-3fb6-7d93-bb1d-df8f0ce148ac"  # Fill this in after registering your purple agent
 
 # Docker image for the purple agent
 image = "ghcr.io/YOUR_USERNAME/ecom-white-agent:latest"
