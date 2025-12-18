@@ -63,6 +63,19 @@ jobs:
             exit 1
           fi
       
+      - name: Debug - Print results.json contents
+        if: steps.check_results.outputs.has_results == 'true'
+        run: |
+          echo "==================== RESULTS.JSON CONTENTS ===================="
+          cat output/results.json
+          echo ""
+          echo "==================== FILE SIZE ===================="
+          ls -lh output/results.json
+          echo ""
+          echo "==================== PRETTY PRINT ===================="
+          python3 -m json.tool output/results.json || echo "Failed to parse JSON"
+          echo "=============================================================="
+      
       - name: Create submission branch
         if: steps.check_results.outputs.has_results == 'true'
         run: |
