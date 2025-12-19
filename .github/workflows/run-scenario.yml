@@ -60,8 +60,10 @@ jobs:
           # Prefer green_results.json (written directly by green agent)
           if [ -f output/green_results.json ]; then
             echo "Found green_results.json - using green agent's direct output"
+            rm -f output/results.json
             cp output/green_results.json output/results.json
             echo "has_results=true" >> $GITHUB_OUTPUT
+
           elif [ -f output/results.json ]; then
             echo "Using agentbeats-client results.json"
             echo "has_results=true" >> $GITHUB_OUTPUT
