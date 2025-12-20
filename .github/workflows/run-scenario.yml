@@ -69,7 +69,9 @@ jobs:
 
           if [ -f output/green_results.json ]; then
             echo "Found output/green_results.json; copying to output/results.json"
+            rm -f output/results.json
             cp output/green_results.json output/results.json
+            chmod a+rw output/results.json || true
           fi
 
           if [ ! -f output/results.json ]; then
