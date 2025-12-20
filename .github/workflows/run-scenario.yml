@@ -81,6 +81,48 @@ jobs:
 
           python3 -m json.tool output/results.json >/dev/null
 
+      - name: Fix participant IDs in results
+        run: |
+          python3 << 'EOF'
+          import json
+          import tomli
+          
+          # Read scenario.toml to get agentbeats_ids
+          with open("scenario.toml", "rb") as f:
+              scenario = tomli.load(f)
+          
+          # Build mapping of name -> agentbeats_id
+          id_mapping = {}
+          for p in scenario.get("participants", []):
+              name = p.get("name")
+              agentbeats_id = p.get("agentbeats_id")
+              if name and agentbeats_id:
+                  id_mapping[name] = agentbeats_id
+          
+          print(f"ID mapping: {id_mapping}")
+          
+          # Read results.json
+          with open("output/results.json", "r") as f:
+              results = json.load(f)
+          
+          # Replace URLs with agentbeats_ids in participants
+          new_participants = {}
+          for name, value in results.get("participants", {}).items():
+              if name in id_mapping:
+                  print(f"Replacing {name}: {value} -> {id_mapping[name]}")
+                  new_participants[name] = id_mapping[name]
+              else:
+                  new_participants[name] = value
+          
+          results["participants"] = new_participants
+          
+          # Write fixed results
+          with open("output/results.json", "w") as f:
+              json.dump(results, f, indent=2)
+          
+          print(f"Fixed results written to output/results.json")
+          EOF
+
       - name: Generate submission metadata
         id: metadata
         run: |
