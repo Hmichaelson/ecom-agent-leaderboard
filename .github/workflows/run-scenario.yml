@@ -3,124 +3,130 @@ name: Run Scenario
 on:
   push:
     paths:
-      - 'scenario.toml'
+      - "scenario.toml"
   workflow_dispatch:
 
 jobs:
-  run-scenario:
+  run:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
-    
+      packages: read
+
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
-      
+          python-version: "3.11"
+
       - name: Install dependencies
         run: |
-          pip install toml pyyaml tomli-w
-      
-      - name: Generate Docker Compose configuration
+          pip install tomli tomli-w
+
+      - name: Generate docker-compose.yml
+        run: python generate_compose.py --scenario scenario.toml
+
+      - name: Create output directory
         run: |
-          python generate_compose.py --scenario scenario.toml
-      
-      - name: Create output directory with proper permissions
+          mkdir -p output && chmod 777 output
+
+      - name: Export secrets as environment variables
+        env:
+          SECRETS_JSON: ${{ toJSON(secrets) }}
         run: |
-          mkdir -p output
-          chmod 777 output
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Log in to GitHub Container Registry
+          echo "$SECRETS_JSON" | jq -r 'to_entries|map("\(.key)=\(.value)")|.[]' > .env
+
+      - name: Check if GHCR_TOKEN is available
+        id: check_ghcr
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        run: |
+          if [ -n "$GHCR_TOKEN" ]; then
+            echo "has_token=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_token=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Login to GitHub Container Registry
+        if: steps.check_ghcr.outputs.has_token == 'true'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      
+          password: ${{ secrets.GHCR_TOKEN }}
+
       - name: Run assessment
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          docker compose up --abort-on-container-exit
-          
-      - name: Check for results
+        run: docker compose up --exit-code-from agentbeats-client --abort-on-container-exit
+
+      - name: Normalize and validate results
         id: check_results
         run: |
-          echo "Checking for results files..."
-          ls -la output/
-          
-          # Prefer green_results.json (written directly by green agent)
-          if [ -f output/green_results.json ]; then
-            echo "Found green_results.json - using green agent's direct output"
-            rm -f output/results.json
-            cp output/green_results.json output/results.json
-            echo "has_results=true" >> $GITHUB_OUTPUT
+          echo "Output files:"
+          ls -la output/ || true
 
-          elif [ -f output/results.json ]; then
-            echo "Using agentbeats-client results.json"
-            echo "has_results=true" >> $GITHUB_OUTPUT
-          else
-            echo "No results found"
-            echo "has_results=false" >> $GITHUB_OUTPUT
+          if [ -f output/green_results.json ]; then
+            echo "Found output/green_results.json; copying to output/results.json"
+            cp output/green_results.json output/results.json
+          fi
+
+          if [ ! -f output/results.json ]; then
+            echo "No output/results.json found; failing."
             exit 1
           fi
-      
-      - name: Debug - Print results.json contents
-        if: steps.check_results.outputs.has_results == 'true'
+
+          python3 -m json.tool output/results.json >/dev/null
+
+      - name: Generate submission metadata
+        id: metadata
         run: |
-          echo "==================== ALL OUTPUT FILES ===================="
-          ls -la output/
-          echo ""
-          echo "==================== RESULTS.JSON CONTENTS ===================="
-          cat output/results.json
-          echo ""
-          echo "==================== PRETTY PRINT ===================="
-          python3 -m json.tool output/results.json || echo "Failed to parse JSON"
-          echo "=============================================================="
-      
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          USERNAME=${{ github.repository_owner }}
+          UNIQUE_NAME="${USERNAME}-${TIMESTAMP}"
+          echo "unique_name=$UNIQUE_NAME" >> $GITHUB_OUTPUT
+          echo "branch_name=submission-${UNIQUE_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Copy files to submission directory
+        run: |
+          mkdir -p submissions results
+          cp scenario.toml submissions/${{ steps.metadata.outputs.unique_name }}.toml
+          cp output/results.json results/${{ steps.metadata.outputs.unique_name }}.json
+
+      - name: Determine target repository
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PARENT_REPO=$(gh api repos/${{ github.repository }} --jq '.parent.full_name // "${{ github.repository }}"')
+          echo "Target repository: $PARENT_REPO"
+          echo "repo=$PARENT_REPO" >> $GITHUB_OUTPUT
+
       - name: Create submission branch
-        if: steps.check_results.outputs.has_results == 'true'
         run: |
-          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-          BRANCH_NAME="submission_${TIMESTAMP}"
-          
+          git remote add upstream https://github.com/${{ steps.target.outputs.repo }}.git
+          git fetch upstream
+          git checkout -b ${{ steps.metadata.outputs.branch_name }} upstream/main
+
+      - name: Commit results
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          git checkout -b "$BRANCH_NAME"
-          
-          # Move results to submissions directory
-          mkdir -p results
-          cp output/results.json "results/result_${TIMESTAMP}.json"
-          
-          git add "results/result_${TIMESTAMP}.json"
-          git commit -m "Add assessment results from ${TIMESTAMP}"
-          git push origin "$BRANCH_NAME"
-          
-          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
-      
-      - name: Create Pull Request
-        if: steps.check_results.outputs.has_results == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git add submissions/${{ steps.metadata.outputs.unique_name }}.toml results/${{ steps.metadata.outputs.unique_name }}.json
+          git commit -m "Submission: ${{ steps.metadata.outputs.unique_name }}
+
+          Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          git push origin ${{ steps.metadata.outputs.branch_name }}
+          echo "::notice title=Submission Branch Created::Your results are ready for submission on branch: ${{ steps.metadata.outputs.branch_name }}"
+
+      - name: Output PR link
         run: |
-          gh pr create \
-            --base main \
-            --head "${{ env.BRANCH_NAME }}" \
-            --title "Assessment Results - $(date +%Y-%m-%d)" \
-            --body "## Assessment Results
+          echo "### Submit your results" >> $GITHUB_STEP_SUMMARY
+          echo "[Click here to open a pull request](https://github.com/${{ steps.target.outputs.repo }}/compare/main...${{ github.repository_owner }}:${{ steps.metadata.outputs.branch_name }}?expand=1)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ When creating the PR, UNCHECK 'Allow edits and access to secrets by maintainers' to protect your secrets." >> $GITHUB_STEP_SUMMARY
 
-          This PR contains assessment results from running scenario.toml.
-
-          **Triggered by**: ${{ github.actor }}
-          **Workflow run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-          Please review the results and merge to update the leaderboard."
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v || true
