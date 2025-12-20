@@ -84,17 +84,21 @@ jobs:
       - name: Generate submission metadata
         id: metadata
         run: |
-          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-          USERNAME=${{ github.repository_owner }}
-          UNIQUE_NAME="${USERNAME}-${TIMESTAMP}"
-          echo "unique_name=$UNIQUE_NAME" >> $GITHUB_OUTPUT
-          echo "branch_name=submission-${UNIQUE_NAME}" >> $GITHUB_OUTPUT
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          BASENAME="result_${TIMESTAMP}"
+          echo "basename=$BASENAME" >> $GITHUB_OUTPUT
+          echo "branch_name=submission_${TIMESTAMP}" >> $GITHUB_OUTPUT
+
+          if ! echo "$BASENAME" | grep -Eq '^result_[0-9]{8}_[0-9]{6}$'; then
+            echo "Unexpected basename format: $BASENAME"
+            exit 1
+          fi
 
       - name: Copy files to submission directory
         run: |
           mkdir -p submissions results
-          cp scenario.toml submissions/${{ steps.metadata.outputs.unique_name }}.toml
-          cp output/results.json results/${{ steps.metadata.outputs.unique_name }}.json
+          cp scenario.toml submissions/${{ steps.metadata.outputs.basename }}.toml
+          cp output/results.json results/${{ steps.metadata.outputs.basename }}.json
 
       - name: Determine target repository
         id: target
@@ -115,8 +119,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add submissions/${{ steps.metadata.outputs.unique_name }}.toml results/${{ steps.metadata.outputs.unique_name }}.json
-          git commit -m "Submission: ${{ steps.metadata.outputs.unique_name }}
+          git add submissions/${{ steps.metadata.outputs.basename }}.toml results/${{ steps.metadata.outputs.basename }}.json
+          git commit -m "Submission: ${{ steps.metadata.outputs.basename }}
 
           Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           git push origin ${{ steps.metadata.outputs.branch_name }}
@@ -128,6 +132,8 @@ jobs:
           echo "[Click here to open a pull request](https://github.com/${{ steps.target.outputs.repo }}/compare/main...${{ github.repository_owner }}:${{ steps.metadata.outputs.branch_name }}?expand=1)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "⚠️ When creating the PR, UNCHECK 'Allow edits and access to secrets by maintainers' to protect your secrets." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Result filename: results/${{ steps.metadata.outputs.basename }}.json" >> $GITHUB_STEP_SUMMARY
 
       - name: Cleanup
         if: always()
